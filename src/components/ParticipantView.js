@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format, parseISO, parse, isBefore, isAfter, isEqual, addMinutes, startOfDay } from 'date-fns'; // Added imports
 import { generateTimeSlots } from '@/lib/date-utils';
 
 export default function ParticipantView({ invite, event }) {
@@ -9,9 +9,63 @@ export default function ParticipantView({ invite, event }) {
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
 
-    // Generate slots
-    const timeSlots = generateTimeSlots(); // Default 9-5
-    const validDates = event.dates ? event.dates.sort() : [];
+    // Support for timeBlocks
+    const { validDates, timeSlots, isSlotValid } = useMemo(() => {
+        if (!event.timeBlocks) {
+            // Fallback for old events (if any) or empty
+            return { validDates: [], timeSlots: [], isSlotValid: () => false };
+        }
+
+        const dates = [...new Set(event.timeBlocks.map(b => b.date))].sort();
+
+        // Find global min start and max end
+        let globalStart = new Date();
+        globalStart.setHours(23, 59, 0, 0);
+        let globalEnd = new Date();
+        globalEnd.setHours(0, 0, 0, 0);
+
+        const parseTime = (tStr, baseDate) => {
+            return parse(tStr, 'hh:mm a', baseDate);
+        };
+
+        const today = startOfDay(new Date());
+
+        event.timeBlocks.forEach(block => {
+            const start = parseTime(block.startTime, today);
+            const end = parseTime(block.endTime, today);
+            if (isBefore(start, globalStart)) globalStart = start;
+            if (isAfter(end, globalEnd)) globalEnd = end;
+        });
+
+        // Generate slots from globalStart to globalEnd
+        const slots = [];
+        let current = globalStart;
+        while (isBefore(current, globalEnd)) {
+            slots.push(format(current, 'hh:mm a'));
+            current = addMinutes(current, 30);
+        }
+
+        // Helper to check validity
+        const checkValidity = (dateStr, timeStr) => {
+            const block = event.timeBlocks.find(b => b.date === dateStr); // Assumption: 1 block per day for MVP, or filter
+            if (!block) return false;
+
+            // Handle multiple blocks per day? The UI allows adding multiple.
+            // So we need to check if ANY block on that date covers this time.
+            const dayBlocks = event.timeBlocks.filter(b => b.date === dateStr);
+            const slotTime = parse(timeStr, 'hh:mm a', today);
+
+            return dayBlocks.some(b => {
+                const s = parse(b.startTime, 'hh:mm a', today);
+                const e = parse(b.endTime, 'hh:mm a', today);
+                // Valid if slotTime >= start && slotTime < end
+                return (isAfter(slotTime, s) || isEqual(slotTime, s)) && isBefore(slotTime, e);
+            });
+        };
+
+        return { validDates: dates, timeSlots: slots, isSlotValid: checkValidity };
+
+    }, [event]);
 
     const toggleSlot = (dateStr, timeStr) => {
         // timeStr is "9:00 AM"
@@ -90,10 +144,9 @@ export default function ParticipantView({ invite, event }) {
 
                     <div style={{ overflowX: 'auto' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: `auto repeat(${validDates.length}, minmax(100px, 1fr))`, gap: '1px', background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                            {/* Header Row */}
                             <div style={{ background: 'var(--surface)', padding: '1rem' }}></div>
                             {validDates.map(d => (
-                                <div key={d} style={{ background: 'var(--surface)', padding: '1rem', textAlign: 'center', fontWeight: 600 }}>
+                                <div key={d} style={{ background: 'var(--surface)', padding: '1rem', textAlign: 'center', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>
                                     {format(parseISO(d), 'EEE MMM d')}
                                 </div>
                             ))}
@@ -107,6 +160,22 @@ export default function ParticipantView({ invite, event }) {
                                     {validDates.map(date => {
                                         const composite = `${date}::${time}`;
                                         const isSelected = availability.includes(composite);
+                                        const valid = isSlotValid(date, time);
+
+                                        if (!valid) {
+                                            return (
+                                                <div
+                                                    key={composite}
+                                                    style={{
+                                                        background: 'var(--border)', // visually disabled
+                                                        opacity: 0.3,
+                                                        borderRight: '1px solid #ddd',
+                                                        borderBottom: '1px solid #ddd'
+                                                    }}
+                                                />
+                                            );
+                                        }
+
                                         return (
                                             <div
                                                 key={composite}
@@ -117,7 +186,9 @@ export default function ParticipantView({ invite, event }) {
                                                     transition: 'all 0.1s',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center'
+                                                    justifyContent: 'center',
+                                                    borderRight: '1px solid var(--border)',
+                                                    borderBottom: '1px solid var(--border)'
                                                 }}
                                             >
                                                 {isSelected && <span style={{ color: 'white', fontSize: '0.7rem' }}>✓</span>}

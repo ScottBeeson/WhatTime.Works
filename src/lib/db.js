@@ -34,8 +34,7 @@ export const db = {
             created_at: new Date().toISOString(),
             title: data.title,
             organizer: data.organizer,
-            dates: data.dates || [], // Array of ISO strings (YYYY-MM-DD)
-            timeRange: data.timeRange || { start: '09:00', end: '17:00' },
+            timeBlocks: data.timeBlocks || [], // Array of { date, startTime, endTime }
             responses: [],
             invitees: []
         };
