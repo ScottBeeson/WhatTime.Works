@@ -5,12 +5,18 @@ const DB_FILENAME = 'db.json';
 
 async function readDb() {
     try {
-        const { blobs } = await list();
-        const blob = blobs.find(b => b.pathname === DB_FILENAME);
-        if (!blob) {
-            return { events: {} };
+        let url = process.env.BLOB_URL;
+
+        if (!url) {
+            const { blobs } = await list({ prefix: DB_FILENAME });
+            const blob = blobs.find(b => b.pathname === DB_FILENAME);
+            if (!blob) {
+                return { events: {} };
+            }
+            url = blob.url;
         }
-        const response = await fetch(blob.url, { cache: 'no-store' });
+
+        const response = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
         if (!response.ok) {
             throw new Error('Failed to fetch db');
         }
