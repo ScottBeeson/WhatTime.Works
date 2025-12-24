@@ -57,9 +57,12 @@ export default function NewEvent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-            const data = await res.json();
-            if (data.id) {
-                router.push(`/event/${data.id}`);
+
+            if (res.ok) {
+                const data = await res.json();
+                router.push(`/event/${data.id}?new=true`);
+            } else {
+                throw new Error('Failed to create event');
             }
         } catch (err) {
             alert('Error creating event');
