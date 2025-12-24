@@ -10,7 +10,7 @@ async function readDb() {
         if (!blob) {
             return { events: {} };
         }
-        const response = await fetch(blob.url);
+        const response = await fetch(blob.url, { cache: 'no-store' });
         if (!response.ok) {
             throw new Error('Failed to fetch db');
         }
