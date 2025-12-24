@@ -24,7 +24,9 @@ async function readDb() {
 async function writeDb(data) {
     await put(DB_FILENAME, JSON.stringify(data, null, 2), {
         access: 'public',
-        addRandomSuffix: false
+        addRandomSuffix: false,
+        token: process.env.BLOB_READ_WRITE_TOKEN, // Explicitly pass token if needed, but usually auto-detected
+        allowOverwrite: true // Required to update the existing db.json
     });
 }
 
