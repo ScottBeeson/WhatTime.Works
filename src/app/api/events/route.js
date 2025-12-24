@@ -7,7 +7,7 @@ export async function POST(request) {
         if (!data.title || !data.organizer) {
             return NextResponse.json({ error: 'Missing title or organizer' }, { status: 400 });
         }
-        const event = db.createEvent(data);
+        const event = await db.createEvent(data);
         return NextResponse.json(event);
     } catch (e) {
         return NextResponse.json({ error: e.message }, { status: 500 });

@@ -8,7 +8,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
         }
 
-        const result = db.respond(eventId, inviteId, availability);
+        const result = await db.respond(eventId, inviteId, availability);
         return NextResponse.json({ success: true });
     } catch (e) {
         return NextResponse.json({ error: e.message }, { status: 500 });

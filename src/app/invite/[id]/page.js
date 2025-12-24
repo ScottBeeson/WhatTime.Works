@@ -4,7 +4,7 @@ import ParticipantView from '@/components/ParticipantView';
 export default async function InvitePage({ params }) {
     const resolvedParams = await params;
     const { id } = resolvedParams;
-    const invite = db.getInvite(id);
+    const invite = await db.getInvite(id);
 
     if (!invite) {
         return (

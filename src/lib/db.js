@@ -1,33 +1,36 @@
-import fs from 'fs';
-import path from 'path';
+import { put, list } from '@vercel/blob';
 import { v4 as uuidv4 } from 'uuid';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'db.json');
+const DB_FILENAME = 'db.json';
 
-function readDb() {
-    if (!fs.existsSync(DB_PATH)) {
-        return { events: {} };
-    }
+async function readDb() {
     try {
-        const data = fs.readFileSync(DB_PATH, 'utf-8');
-        return JSON.parse(data);
+        const { blobs } = await list();
+        const blob = blobs.find(b => b.pathname === DB_FILENAME);
+        if (!blob) {
+            return { events: {} };
+        }
+        const response = await fetch(blob.url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch db');
+        }
+        return await response.json();
     } catch (error) {
-        // If error reading, return empty
+        console.error("Error reading db:", error);
         return { events: {} };
     }
 }
 
-function writeDb(data) {
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+async function writeDb(data) {
+    await put(DB_FILENAME, JSON.stringify(data, null, 2), {
+        access: 'public',
+        addRandomSuffix: false
+    });
 }
 
 export const db = {
-    createEvent: (data) => {
-        const dbData = readDb();
+    createEvent: async (data) => {
+        const dbData = await readDb();
         const id = uuidv4();
         const event = {
             id,
@@ -39,17 +42,17 @@ export const db = {
             invitees: []
         };
         dbData.events[id] = event;
-        writeDb(dbData);
+        await writeDb(dbData);
         return event;
     },
 
-    getEvent: (id) => {
-        const dbData = readDb();
+    getEvent: async (id) => {
+        const dbData = await readDb();
         return dbData.events[id] || null;
     },
 
-    createInvite: (eventId, name) => {
-        const dbData = readDb();
+    createInvite: async (eventId, name) => {
+        const dbData = await readDb();
         const event = dbData.events[eventId];
         if (!event) throw new Error('Event not found');
 
@@ -59,12 +62,12 @@ export const db = {
         if (!event.invitees) event.invitees = [];
         event.invitees.push(invite);
 
-        writeDb(dbData);
+        await writeDb(dbData);
         return invite;
     },
 
-    getInvite: (inviteId) => {
-        const dbData = readDb();
+    getInvite: async (inviteId) => {
+        const dbData = await readDb();
         for (const eventId in dbData.events) {
             const event = dbData.events[eventId];
             const invite = event.invitees?.find(i => i.id === inviteId);
@@ -73,8 +76,8 @@ export const db = {
         return null;
     },
 
-    respond: (eventId, inviteId, availability) => {
-        const dbData = readDb();
+    respond: async (eventId, inviteId, availability) => {
+        const dbData = await readDb();
         const event = dbData.events[eventId];
         if (!event) throw new Error('Event not found');
 
@@ -92,7 +95,7 @@ export const db = {
             updated_at: new Date().toISOString()
         });
 
-        writeDb(dbData);
+        await writeDb(dbData);
         return true;
     }
 };

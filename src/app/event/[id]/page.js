@@ -4,7 +4,7 @@ import Dashboard from '@/components/Dashboard';
 export default async function EventPage({ params }) {
     const resolvedParams = await params;
     const { id } = resolvedParams;
-    const event = db.getEvent(id);
+    const event = await db.getEvent(id);
 
     if (!event) {
         return (
