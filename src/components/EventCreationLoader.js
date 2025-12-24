@@ -28,15 +28,6 @@ export default function EventCreationLoader({ eventId }) {
         };
 
         const interval = setInterval(async () => {
-            setAttempts(prev => {
-                const newAttempts = prev + 1;
-                if (newAttempts > 20) { // Timeout after ~40s (2s * 20)
-                    setStatus("This is taking longer than expected. Please refresh the page manually.");
-                    clearInterval(interval);
-                }
-                return newAttempts;
-            });
-
             const found = await checkEvent();
             if (found) clearInterval(interval);
         }, 2000);
@@ -75,7 +66,7 @@ export default function EventCreationLoader({ eventId }) {
             `}</style>
             <h1>{status}</h1>
             <p className="text-muted" style={{ marginTop: '1rem', maxWidth: '400px' }}>
-                We're syncing your event to the cloud. This usually takes just a few seconds.
+                This might take a minute or two.
             </p>
         </div>
     );
