@@ -1,14 +1,24 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   return (
     <main className="container" style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
       <div className="stack" style={{ gap: '2.5rem', width: '100%', maxWidth: '800px', alignItems: 'center', textAlign: 'center' }}>
 
-        <div className="stack" style={{ gap: '1rem' }}>
-          <h1 style={{ fontSize: 'clamp(3rem, 8vw, 5rem)', letterSpacing: '-0.05em', lineHeight: 1 }}>
-            WhatTime<span style={{ color: 'var(--primary)' }}>.Works</span>
-          </h1>
+        <div className="stack" style={{ gap: '1rem', alignItems: 'center' }}>
+          <div className="row" style={{ alignItems: 'center', gap: '1rem' }}>
+            <Image
+              src="/logo.png"
+              alt="WhatTime.Works Logo"
+              width={80}
+              height={80}
+              className="object-contain"
+            />
+            <h1 style={{ fontSize: 'clamp(3rem, 8vw, 5rem)', letterSpacing: '-0.05em', lineHeight: 1, margin: 0 }}>
+              WhatTime<span style={{ color: 'var(--primary)' }}>.Works</span>
+            </h1>
+          </div>
           <p style={{ fontSize: '1.25rem', color: 'var(--foreground)', opacity: 0.7, maxWidth: '500px', margin: '0 auto' }}>
             The simplest way to coordinate meetings. <br />
             Create an event, share the link, find a time.

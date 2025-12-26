@@ -60,7 +60,7 @@ export default function NewEvent() {
 
             if (res.ok) {
                 const data = await res.json();
-                router.push(`/event/${data.id}?new=true`);
+                router.push(`/event/${data.id}`);
             } else {
                 throw new Error('Failed to create event');
             }

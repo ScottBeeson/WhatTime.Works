@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { deleteEventAction } from './actions';
 import { format } from 'date-fns';
+import Image from 'next/image';
 
 export default async function AdminPage() {
     const events = await db.getAllEvents();
@@ -8,7 +9,16 @@ export default async function AdminPage() {
     return (
         <div className="container" style={{ paddingTop: '2rem' }}>
             <div className="between row" style={{ marginBottom: '2rem' }}>
-                <h1>Admin Dashboard</h1>
+                <div className="row" style={{ alignItems: 'center', gap: '1rem' }}>
+                    <Image
+                        src="/logo.png"
+                        alt="Logo"
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                    />
+                    <h1>Admin Dashboard</h1>
+                </div>
                 <div className="text-sm" style={{ opacity: 0.7 }}>
                     {events.length} Event{events.length !== 1 ? 's' : ''}
                 </div>

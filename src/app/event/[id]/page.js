@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import Dashboard from '@/components/Dashboard';
 
-import EventCreationLoader from '@/components/EventCreationLoader';
+import { notFound } from 'next/navigation';
 
 export default async function EventPage({ params }) {
     const resolvedParams = await params;
@@ -11,10 +11,7 @@ export default async function EventPage({ params }) {
     const event = await db.getEvent(id);
 
     if (!event) {
-        // If not found, it might be new. Show loader which client-side polls.
-        // This handles both "truly not found" (eventually times out)
-        // and "just created" (eventually succeeds)
-        return <EventCreationLoader eventId={id} />;
+        notFound();
     }
 
     return <Dashboard initialEvent={event} />;
