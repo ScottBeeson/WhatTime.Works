@@ -123,5 +123,32 @@ export const db = {
         });
 
         return true;
+    },
+
+    getAllEvents: async () => {
+        const result = await turso.execute({
+            sql: `
+                SELECT 
+                    e.id, 
+                    e.title, 
+                    e.organizer, 
+                    e.created_at,
+                    (SELECT COUNT(*) FROM responses r 
+                     JOIN invites i ON r.invite_id = i.id 
+                     WHERE i.event_id = e.id) as response_count
+                FROM events e
+                ORDER BY e.created_at DESC
+            `,
+            args: []
+        });
+        return result.rows.map(r => ({ ...r }));
+    },
+
+    deleteEvent: async (id) => {
+        await turso.execute({
+            sql: "DELETE FROM events WHERE id = ?",
+            args: [id]
+        });
+        return true;
     }
 };
