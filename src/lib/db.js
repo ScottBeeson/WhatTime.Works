@@ -1,109 +1,127 @@
-import { put, list } from '@vercel/blob';
+import { turso } from './turso.js';
 import { v4 as uuidv4 } from 'uuid';
-
-const DB_FILENAME = 'db.json';
-
-async function readDb() {
-    try {
-        let url = process.env.BLOB_URL;
-
-        if (!url) {
-            const { blobs } = await list({ prefix: DB_FILENAME });
-            const blob = blobs.find(b => b.pathname === DB_FILENAME);
-            if (!blob) {
-                return { events: {} };
-            }
-            url = blob.url;
-        }
-
-        const response = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
-        if (!response.ok) {
-            throw new Error('Failed to fetch db');
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error reading db:", error);
-        return { events: {} };
-    }
-}
-
-async function writeDb(data) {
-    await put(DB_FILENAME, JSON.stringify(data, null, 2), {
-        access: 'public',
-        addRandomSuffix: false,
-        token: process.env.BLOB_READ_WRITE_TOKEN, // Explicitly pass token if needed, but usually auto-detected
-        allowOverwrite: true // Required to update the existing db.json
-    });
-}
 
 export const db = {
     createEvent: async (data) => {
-        const dbData = await readDb();
         const id = uuidv4();
-        const event = {
+        const created_at = new Date().toISOString();
+        const { title, organizer, timeBlocks = [] } = data;
+
+        await turso.execute({
+            sql: "INSERT INTO events (id, title, organizer, created_at) VALUES (?, ?, ?, ?)",
+            args: [id, title, organizer, created_at]
+        });
+
+        for (const block of timeBlocks) {
+            await turso.execute({
+                sql: "INSERT INTO time_blocks (event_id, date, start_time, end_time) VALUES (?, ?, ?, ?)",
+                args: [id, block.date, block.startTime, block.endTime]
+            });
+        }
+
+        return {
             id,
-            created_at: new Date().toISOString(),
-            title: data.title,
-            organizer: data.organizer,
-            timeBlocks: data.timeBlocks || [], // Array of { date, startTime, endTime }
+            created_at,
+            title,
+            organizer,
+            timeBlocks,
             responses: [],
             invitees: []
         };
-        dbData.events[id] = event;
-        await writeDb(dbData);
-        return event;
     },
 
     getEvent: async (id) => {
-        const dbData = await readDb();
-        return dbData.events[id] || null;
+        const eventResult = await turso.execute({
+            sql: "SELECT * FROM events WHERE id = ?",
+            args: [id]
+        });
+
+        if (eventResult.rows.length === 0) return null;
+        const event = eventResult.rows[0];
+
+        const timeBlocksResult = await turso.execute({
+            sql: "SELECT date, start_time as startTime, end_time as endTime FROM time_blocks WHERE event_id = ?",
+            args: [id]
+        });
+
+        const invitesResult = await turso.execute({
+            sql: "SELECT * FROM invites WHERE event_id = ?",
+            args: [id]
+        });
+
+        const responsesResult = await turso.execute({
+            sql: `
+                SELECT r.*, i.name, i.id as inviteId 
+                FROM responses r 
+                JOIN invites i ON r.invite_id = i.id 
+                WHERE i.event_id = ?
+            `,
+            args: [id]
+        });
+
+        return {
+            ...event,
+            timeBlocks: timeBlocksResult.rows.map(r => ({ ...r })),
+            invitees: invitesResult.rows.map(r => ({ ...r })),
+            responses: responsesResult.rows.map(r => ({
+                ...r,
+                availability: JSON.parse(r.availability)
+            }))
+        };
     },
 
     createInvite: async (eventId, name) => {
-        const dbData = await readDb();
-        const event = dbData.events[eventId];
-        if (!event) throw new Error('Event not found');
-
         const inviteId = uuidv4();
-        const invite = { id: inviteId, name, eventId };
 
-        if (!event.invitees) event.invitees = [];
-        event.invitees.push(invite);
+        // ensure event exists
+        const eventResult = await turso.execute({
+            sql: "SELECT id FROM events WHERE id = ?",
+            args: [eventId]
+        });
+        if (eventResult.rows.length === 0) throw new Error('Event not found');
 
-        await writeDb(dbData);
-        return invite;
+        await turso.execute({
+            sql: "INSERT INTO invites (id, event_id, name) VALUES (?, ?, ?)",
+            args: [inviteId, eventId, name]
+        });
+
+        return { id: inviteId, name, eventId };
     },
 
     getInvite: async (inviteId) => {
-        const dbData = await readDb();
-        for (const eventId in dbData.events) {
-            const event = dbData.events[eventId];
-            const invite = event.invitees?.find(i => i.id === inviteId);
-            if (invite) return { ...invite, event };
-        }
-        return null;
+        const inviteResult = await turso.execute({
+            sql: "SELECT * FROM invites WHERE id = ?",
+            args: [inviteId]
+        });
+
+        if (inviteResult.rows.length === 0) return null;
+        const invite = inviteResult.rows[0];
+
+        // Fetch event data to return structure { ...invite, event: { ... } }
+        const eventData = await db.getEvent(invite.event_id);
+
+        return {
+            ...invite,
+            event: eventData
+        };
     },
 
     respond: async (eventId, inviteId, availability) => {
-        const dbData = await readDb();
-        const event = dbData.events[eventId];
-        if (!event) throw new Error('Event not found');
+        // verify event and invite exist (optional but good practice)
+        // For now, simpler: just upsert response
+        const updated_at = new Date().toISOString();
 
-        // Update responses
-        event.responses = event.responses ? event.responses.filter(r => r.inviteId !== inviteId) : [];
-
-        // Find invitee name
-        const invite = event.invitees?.find(i => i.id === inviteId);
-        const name = invite ? invite.name : 'Unknown';
-
-        event.responses.push({
-            inviteId,
-            name,
-            availability, // Array of strings e.g. "2023-01-01T10:00"
-            updated_at: new Date().toISOString()
+        await turso.execute({
+            sql: `
+                INSERT INTO responses (invite_id, availability, updated_at) 
+                VALUES (?, ?, ?)
+                ON CONFLICT(invite_id) DO UPDATE SET
+                availability = excluded.availability,
+                updated_at = excluded.updated_at
+            `,
+            args: [inviteId, JSON.stringify(availability), updated_at]
         });
 
-        await writeDb(dbData);
         return true;
     }
 };

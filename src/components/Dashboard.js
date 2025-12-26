@@ -49,7 +49,7 @@ export default function Dashboard({ initialEvent }) {
     const getParticipantsForSlot = (slot) => {
         return event.responses
             ?.filter(r => r.availability.includes(slot))
-            .map(r => r.name) || [];
+            .map(r => ({ name: r.name, id: r.inviteId })) || [];
     };
 
     const handleCreateInvite = async (e) => {
@@ -159,9 +159,9 @@ export default function Dashboard({ initialEvent }) {
                                         </div>
                                     </div>
                                     <div className="row" style={{ marginTop: '1rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                        {getParticipantsForSlot(bestTime).map(name => (
-                                            <span key={name} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', background: '#dcfce7', color: '#166534', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
-                                                {name}
+                                        {getParticipantsForSlot(bestTime).map(p => (
+                                            <span key={p.id} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', background: '#dcfce7', color: '#166534', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                                                {p.name}
                                             </span>
                                         ))}
                                     </div>
@@ -201,15 +201,15 @@ export default function Dashboard({ initialEvent }) {
                                                             </div>
                                                             <div className="stack" style={{ flex: 1, gap: '0.5rem' }}>
                                                                 <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                                    {participants.map(name => (
-                                                                        <span key={name} style={{
+                                                                    {participants.map(p => (
+                                                                        <span key={p.id} style={{
                                                                             fontSize: '0.8rem',
                                                                             padding: '0.25rem 0.75rem',
                                                                             background: 'var(--surface-active)',
                                                                             borderRadius: '12px',
                                                                             border: '1px solid var(--border)'
                                                                         }}>
-                                                                            {name}
+                                                                            {p.name}
                                                                         </span>
                                                                     ))}
                                                                 </div>
